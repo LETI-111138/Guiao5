@@ -1,38 +1,52 @@
 package com.guiao5.guiao5;
 
+import com.codeborne.selenide.SelenideElement;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.FindBy;
-import org.openqa.selenium.support.PageFactory;
+
+import static com.codeborne.selenide.Selenide.$;
 
 // page_url = https://www.jetbrains.com/
 public class MainPage {
 
-    // --- COOKIES ---
-    @FindBy(css = "[data-test='allow-all-cookies-button']")
-    public WebElement acceptCookiesButton;
+    private final WebDriver driver;
 
-    // --- MENU DE NAVEGAÇÃO ---
-    // Procura o item de menu que contém o texto "Developer Tools"
-    @FindBy(xpath = "//*[@data-test='main-menu-item' and contains(text(), 'Developer Tools')]")
-    public WebElement toolsMenu;
+    // Locators públicos para serem usados nos testes com $(...)
+    public final By seeDeveloperToolsButton =
+            By.cssSelector("[data-test-marker='Developer Tools']");
 
-    // --- PESQUISA ---
-    @FindBy(css = "[data-test='site-header-search-action']")
-    public WebElement searchButton;
+    public final By findYourToolsButton =
+            By.cssSelector("[data-test='suggestion-action']");
 
-    @FindBy(css = "[data-test='search-input']")
-    public WebElement searchInput;
+    public final By toolsMenu =
+            By.cssSelector("[data-test='main-menu-item'][data-test-marker='Developer Tools']");
 
-    @FindBy(css = "button[data-test='full-search-button']")
-    public WebElement fullSearchButton;
-
-    // --- BOTÕES DA PÁGINA PRINCIPAL ---
-    // O botão principal "Find your tools" (geralmente no centro do ecrã)
-    @FindBy(css = "[data-test='suggestion-action']")
-    public WebElement findYourToolsButton;
+    public final By searchButton =
+            By.cssSelector("[data-test='site-header-search-action']");
 
     public MainPage(WebDriver driver) {
-        PageFactory.initElements(driver, this);
+        this.driver = driver;
+    }
+
+    public WebDriver getDriver() {
+        return driver;
+    }
+
+    // Métodos de conveniência (se quiseres usar Page Object também em outros testes)
+
+    public SelenideElement seeDeveloperToolsButton() {
+        return $(seeDeveloperToolsButton);
+    }
+
+    public SelenideElement findYourToolsButton() {
+        return $(findYourToolsButton);
+    }
+
+    public SelenideElement toolsMenu() {
+        return $(toolsMenu);
+    }
+
+    public SelenideElement searchButton() {
+        return $(searchButton);
     }
 }
