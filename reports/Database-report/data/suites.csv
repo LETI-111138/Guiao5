@@ -1,0 +1,8 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","9302","testWaitForHiddenElement()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.tests.DynamicLoadingTest","com.guiao5.guiao5.tests.DynamicLoadingTest","testWaitForHiddenElement"
+"","4201","testFileUpload()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.tests.FileUploadTest","com.guiao5.guiao5.tests.FileUploadTest","testFileUpload"
+"","8710","toolsMenu()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.MainPageTest","com.guiao5.guiao5.MainPageTest","toolsMenu"
+"","24721","search()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.MainPageTest","com.guiao5.guiao5.MainPageTest","search"
+"","4535","testLoginSuccess()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.tests.FormAuthTest","com.guiao5.guiao5.tests.FormAuthTest","testLoginSuccess"
+"","4219","testSelectOption()","","2025-12-05","passed","2025-12-05","","com.guiao5.guiao5.tests.DropdownTest","com.guiao5.guiao5.tests.DropdownTest","testSelectOption"
+"Seleciona um filme na grelha e valida se os detalhes aparecem no formulário","13633","testViewMovieInfo()","","2025-12-05","failed","2025-12-05","","com.guiao5.guiao5.DataBase.DatabaseTest","com.guiao5.guiao5.DataBase.DatabaseTest","testViewMovieInfo"
