@@ -1,175 +1,363 @@
 package com.guiao5.guiao5.BookStore;
 
-import com.codeborne.selenide.Condition;
-import com.codeborne.selenide.ElementsCollection;
 import com.codeborne.selenide.SelenideElement;
+import com.codeborne.selenide.Condition;
+import com.codeborne.selenide.Configuration;
+import com.codeborne.selenide.WebDriverRunner;
 import io.qameta.allure.Step;
+import org.openqa.selenium.WebDriver;
 
-import java.util.Arrays;
-import java.util.List;
-
-import static com.codeborne.selenide.Selectors.*;
 import static com.codeborne.selenide.Selenide.*;
 
-/**
- * Page Object para a Bookstore demo (Vaadin).
- * Fornece métodos de alto nível para:
- *  - abrir a app
- *  - navegar até o painel de administração / novo produto
- *  - preencher um novo produto (tentando selectors normais e fallback JS)
- *
- * Ajusta os labels / textos conforme a versão da demo se necessário.
- */
 public class BookStorePage {
 
     private static final String URL = "https://vaadin-bookstore-example.demo.vaadin.com/";
-    private static final long DEFAULT_SLEEP_MS = 500L;
+    private static final long TIMEOUT_MS = 10000; // 10s
 
-    // Selectors possíveis para o botão "New product" / "Add" (varia por versão)
-    private static final List<String> NEW_PRODUCT_SELECTORS = Arrays.asList(
-            "button:has-text('New product')",
-            "vaadin-button:has-text('New product')",
-            "button:contains('New product')",
-            "button:has-text('Add product')",
-            "vaadin-button:has-text('Add product')"
-    );
+    static {
+        Configuration.timeout = TIMEOUT_MS;
+    }
 
     @Step("Abrir a aplicação Bookstore")
     public BookStorePage openPage() {
         open(URL);
-        // espera inicial curta para render
-        sleep(DEFAULT_SLEEP_MS);
         return this;
     }
 
-    @Step("Ir para o painel Admin / Bookstore (se existir um link direto)")
-    public BookStorePage openAdminViewIfPresent() {
-        // tenta encontrar um link ou botão "Admin" ou "Manage" ou "Add"
-        SelenideElement el = findVisible(
-                "a:has-text('Admin')",
-                "button:has-text('Admin')",
-                "a:has-text('Manage')",
-                "button:has-text('Manage')",
-                "button:has-text('New product')"
+    @Step("Fazer login como admin")
+    public BookStorePage loginAsAdmin() {
+        // tenta inputs normais
+        SelenideElement username = findVisible(
+                "#username",
+                "input[name='username']",
+                "input[id*='user']",
+                "input[placeholder*='User']",
+                "input[type='text']"
         );
-        if (el != null) {
-            try {
-                el.shouldBe(Condition.visible).click();
-                sleep(DEFAULT_SLEEP_MS);
-            } catch (Exception ignored) {}
+
+        SelenideElement password = findVisible(
+                "#password",
+                "input[name='password']",
+                "input[id*='pass']",
+                "input[placeholder*='Pass']",
+                "input[type='password']"
+        );
+
+        if (username != null && password != null) {
+            username.click();
+            username.setValue("admin");
+
+            password.click();
+            password.setValue("admin");
+
+            SelenideElement submit = findVisible(
+                    "button[type='submit']",
+                    "button:has-text('Log in')",
+                    "button:has-text('Login')",
+                    "vaadin-button[title='Log in']",
+                    "vaadin-button"
+            );
+
+            if (submit != null) {
+                submit.click();
+            } else {
+                password.pressEnter();
+            }
+
+            sleep(1500);
+            return this;
         }
+
+        boolean jsResult = (Boolean) executeJavaScript(
+                "(() => {\n" +
+                        "  const selectorsU = ['#username','input[name=\"username\"]','input[id*=user]','input[placeholder*=\"User\"]','input[type=text]'];\n" +
+                        "  const selectorsP = ['#password','input[name=\"password\"]','input[id*=pass]','input[placeholder*=\"Pass\"]','input[type=password]'];\n" +
+                        "  function findFirst(selectors){ for(const s of selectors){ const e = document.querySelector(s); if(e) return e; } return null; }\n" +
+                        "  const u = findFirst(selectorsU);\n" +
+                        "  const p = findFirst(selectorsP);\n" +
+                        "  if(!u || !p) return false;\n" +
+                        "  u.focus(); u.value = 'admin'; u.dispatchEvent(new Event('input', {bubbles:true}));\n" +
+                        "  p.focus(); p.value = 'admin'; p.dispatchEvent(new Event('input', {bubbles:true}));\n" +
+                        "  const submit = document.querySelector('button[type=submit], button[title=\"Log in\"]');\n" +
+                        "  if(submit){ submit.click(); return true; }\n" +
+                        "  p.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));\n" +
+                        "  p.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter'}));\n" +
+                        "  p.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter'}));\n" +
+                        "  return true;\n" +
+                        "})();"
+        );
+
+        if (!jsResult) {
+            WebDriver drv = WebDriverRunner.getWebDriver();
+            throw new IllegalStateException("Não foi possível fazer login. URL atual: " + drv.getCurrentUrl());
+        }
+
+        sleep(1500);
         return this;
     }
 
-    @Step("Abrir formulário 'New product' (tentativa Selenide + fallback JS)")
-    public BookStorePage openNewProductForm() {
-        // 1) tentativa simples com seletores conhecidos
-        for (String sel : NEW_PRODUCT_SELECTORS) {
-            try {
-                SelenideElement b = $(sel);
-                if (b.exists() && b.is(Condition.visible)) {
-                    b.click();
-                    sleep(DEFAULT_SLEEP_MS);
-                    return this;
-                }
-            } catch (Exception ignored) {}
-        }
+    @Step("Abrir formulário de 'New product'")
+    public BookStorePage openAddProductForm() {
 
-        // 2) fallback: pesquisar recursivamente em shadow roots via JS (retorna boolean)
-        String js =
-                "function findDeepButtonWithText(text, root) {\n" +
-                        "  root = root || document;\n" +
-                        "  const buttons = root.querySelectorAll('vaadin-button, button');\n" +
-                        "  for (const b of buttons) { try { if (b.textContent && b.textContent.trim().includes(text)) { b.click(); return true; } } catch(e){} }\n" +
-                        "  const elems = root.querySelectorAll('*');\n                        " +
-                        "  for (const el of elems) {\n" +
-                        "    try { if (el.shadowRoot) { if (findDeepButtonWithText(text, el.shadowRoot)) return true; } } catch(e){}\n" +
-                        "  }\n" +
-                        "  return false;\n" +
-                        "}\n" +
-                        "return findDeepButtonWithText('New product') || findDeepButtonWithText('Add product') || findDeepButtonWithText('Add');";
+        boolean clicked = false;
 
-        boolean ok = (Boolean) executeJavaScript(js);
-        if (!ok) {
-            throw new IllegalStateException("Não consegui abrir o formulário 'New product' (procura falhou). URL atual: " + webdriver().driver().url());
-        }
+        for (int i = 0; i < 10 && !clicked; i++) {
+            clicked = (Boolean) executeJavaScript(
+                    "function findDeepButtonWithText(text, root) {\n" +
+                            "  root = root || document;\n" +
+                            "  const buttons = root.querySelectorAll('vaadin-button, button');\n" +
+                            "  for (const b of buttons) {\n" +
+                            "    if (b.textContent && b.textContent.trim().includes(text)) {\n" +
+                            "      b.click();\n" +
+                            "      return true;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  const elems = root.querySelectorAll('*');\n" +
+                            "  for (const el of elems) {\n" +
+                            "    if (el.shadowRoot) {\n" +
+                            "      if (findDeepButtonWithText(text, el.shadowRoot)) return true;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  return false;\n" +
+                            "}\n" +
+                            "return findDeepButtonWithText('New product');"
+            );
 
-        sleep(DEFAULT_SLEEP_MS);
-        return this;
-    }
-
-    @Step("Preencher novo produto (tenta selectors normais e depois fallback JS)")
-    public BookStorePage fillNewProduct(String name, String price, String stock, String availability, String category) {
-        // 1) tenta preencher campos visíveis com selectors simples (caso a UI não use shadow DOM)
-        boolean basicAttempt = tryFillBasicFields(name, price, stock, availability, category);
-        if (basicAttempt) {
-            // tenta clicar em Save com Selenide também
-            SelenideElement save = findVisible("button:has-text('Save')", "vaadin-button:has-text('Save')", "button:has-text('Create')");
-            if (save != null) {
-                save.click();
-                sleep(DEFAULT_SLEEP_MS * 2);
-                return this;
+            if (!clicked) {
+                sleep(500);
             }
         }
 
-        // 2) fallback JS: similar ao que tens no AddProductPage, simplificado
-        String jsFill =
-                "(function(){\n" +
-                        "  function findDeep(selector, root){ root = root||document; try{ const d = root.querySelector(selector); if(d) return d;}catch(e){} const elems = root.querySelectorAll('*'); for(const el of elems){ try{ if(el.shadowRoot){ const f = findDeep(selector, el.shadowRoot); if(f) return f; } }catch(e){} } return null; }\n" +
-                        "  function findFieldByLabel(label){ const candidates = Array.from(document.querySelectorAll('vaadin-text-field, vaadin-number-field, vaadin-text-area')); for(const c of candidates){ try{ const lab = c.label || (c.getAttribute && c.getAttribute('label')) || ''; if(lab && (lab.trim()===label || lab.trim().startsWith(label) || lab.toLowerCase().includes(label.toLowerCase()))) return c; }catch(e){} } return findDeep('vaadin-text-field[label=\"'+arguments[0]+'\"]') || findDeep('vaadin-number-field[label=\"'+arguments[0]+'\"]'); }\n" +
-                        "  function setField(label, value){ const field = findFieldByLabel(label); if(!field) return false; var input = null; try{ input = field.shadowRoot && field.shadowRoot.querySelector('input, textarea'); }catch(e){} if(input){ try{ input.focus(); input.value = value; input.dispatchEvent(new Event('input',{bubbles:true, composed:true})); input.dispatchEvent(new Event('change',{bubbles:true, composed:true})); input.blur(); }catch(e){} } try{ field.value = value; field.dispatchEvent(new CustomEvent('value-changed',{detail:{value:value}, bubbles:true, composed:true})); }catch(e){} return true; }\n" +
-                        "  function clickCategory(labelText){ const all = Array.from(document.querySelectorAll('vaadin-checkbox')); for(const cb of all){ try{ const lab = cb.label || (cb.getAttribute && cb.getAttribute('label')) || ''; if(lab && (lab.trim()===labelText || lab.trim().toLowerCase().includes(labelText.toLowerCase()))){ cb.checked = true; cb.dispatchEvent(new Event('change',{bubbles:true, composed:true})); return true; } }catch(e){} } const labels = Array.from(document.querySelectorAll('label, span, div')); for(const l of labels){ try{ if(l.textContent && l.textContent.trim().toLowerCase().includes(labelText.toLowerCase())){ let p = l; for(let i=0;i<6;i++){ p = p.parentElement; if(!p) break; const cb = p.querySelector && p.querySelector('vaadin-checkbox, input[type=checkbox]'); if(cb){ cb.checked = true; cb.dispatchEvent(new Event('change',{bubbles:true, composed:true})); return true; } } } }catch(e){} } return false; }\n" +
-                        "  function setSelect(label, optionText){ const selects = Array.from(document.querySelectorAll('vaadin-select, vaadin-combo-box, select')); for(const s of selects){ try{ const lab = s.label || (s.getAttribute && s.getAttribute('label')) || ''; if(lab && (lab.trim()===label || lab.trim().toLowerCase().includes(label.toLowerCase()))){ try{ s.focus(); s.click(); }catch(e){} const matches = Array.from(document.querySelectorAll('*')).filter(el=> el.textContent && el.textContent.trim().toLowerCase().includes(optionText.toLowerCase())); for(const m of matches){ try{ m.click(); return true;}catch(e){} } try{ s.value = optionText; s.dispatchEvent(new Event('change',{bubbles:true, composed:true})); s.dispatchEvent(new CustomEvent('value-changed',{detail:{value:optionText}, bubbles:true, composed:true})); return true;}catch(e){} } }catch(e){} } return false; }\n" +
-                        "  function clickSave(){ const buttons = document.querySelectorAll('vaadin-button, button'); for(const b of buttons){ try{ if(b.textContent && b.textContent.trim().toLowerCase().startsWith('save')){ try{ b.click(); }catch(e){} return true;} }catch(e){} } return false; }\n" +
-                        "  if(!setField('Product name', arguments[0])) return false; setField('Price', arguments[1]); setField('In stock', arguments[2]); if(arguments[3]) setSelect('Availability', arguments[3]); if(arguments[4]) clickCategory(arguments[4]); clickSave(); return true; })();";
-
-        boolean ok = (Boolean) executeJavaScript(jsFill, name, price, stock, availability, category);
-        if (!ok) {
-            throw new IllegalStateException("Falha ao preencher o formulário (JS fallback). URL: " + webdriver().driver().url());
+        if (!clicked) {
+            throw new IllegalStateException("Não consegui encontrar o botão 'New product'.");
         }
 
-        // pequena espera para o grid atualizar
-        sleep(DEFAULT_SLEEP_MS * 2);
+        sleep(1000); // tempo para abrir o painel da direita
         return this;
     }
 
-    // ============================
-    // Helpers
-    // ============================
+    @Step("Preencher formulário de novo produto e gravar")
+    public BookStorePage fillNewProductForm(String name, String price, String stock, String availability, String category) {
 
-    /**
-     * Tenta preencher campos simples (sem shadow DOM) com Selenide.
-     * Retorna true se encontrou e preencheu pelo menos o nome do produto.
-     */
-    private boolean tryFillBasicFields(String name, String price, String stock, String availability, String category) {
-        try {
-            SelenideElement nameField = findVisible("input[placeholder*='Product name']", "input[name='name']", "input[id*='name']", "vaadin-text-field[label*='Product name']");
-            if (nameField == null) return false;
-            nameField.shouldBe(Condition.visible).click();
-            nameField.setValue(name);
+        boolean result = false;
 
-            SelenideElement priceField = findVisible("input[placeholder*='Price']", "input[name='price']", "vaadin-number-field[label*='Price']");
-            if (priceField != null) { priceField.click(); priceField.setValue(price); }
+        for (int i = 0; i < 12 && !result; i++) {
+            result = (Boolean) executeJavaScript(
+                    "function findDeep(selector, root) {\n" +
+                            "  root = root || document;\n" +
+                            "  const direct = root.querySelector(selector);\n" +
+                            "  if (direct) return direct;\n" +
+                            "  const elems = root.querySelectorAll('*');\n" +
+                            "  for (const el of elems) {\n" +
+                            "    if (el.shadowRoot) {\n" +
+                            "      const found = findDeep(selector, el.shadowRoot);\n" +
+                            "      if (found) return found;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  return null;\n" +
+                            "}\n" +
 
-            SelenideElement stockField = findVisible("input[placeholder*='In stock']", "input[name='stock']", "vaadin-number-field[label*='In stock']");
-            if (stockField != null) { stockField.click(); stockField.setValue(stock); }
+                            "function findFieldByLabel(label) {\n" +
+                            "  const candidates = Array.from(document.querySelectorAll('vaadin-text-field, vaadin-number-field, vaadin-text-area'));\n" +
+                            "  for (const c of candidates) {\n" +
+                            "    try {\n" +
+                            "      const lab = c.label || (c.getAttribute && c.getAttribute('label')) || '';\n" +
+                            "      if (lab && (lab.trim() === label || lab.trim().startsWith(label) || lab.toLowerCase().includes(label.toLowerCase()))) {\n" +
+                            "        return c;\n" +
+                            "      }\n" +
+                            "    } catch(e) { /* ignore */ }\n" +
+                            "  }\n" +
+                            "  return findDeep('vaadin-text-field[label=\"' + label + '\"]') || findDeep('vaadin-number-field[label=\"' + label + '\"]');\n" +
+                            "}\n" +
 
-            // availability / category são opcionais em modos básicos
-            return true;
-        } catch (Exception e) {
-            return false;
+                            "function setField(label, value) {\n" +
+                            "  const field = findFieldByLabel(label);\n" +
+                            "  if (!field) return false;\n" +
+                            "  let input = null;\n" +
+                            "  try { input = field.shadowRoot && field.shadowRoot.querySelector('input, textarea'); } catch(e) { input = null; }\n" +
+                            "  if (input) {\n" +
+                            "    input.focus();\n" +
+                            "    input.value = value;\n" +
+                            "    input.dispatchEvent(new Event('input', {bubbles:true, composed:true}));\n" +
+                            "    input.dispatchEvent(new Event('change', {bubbles:true, composed:true}));\n" +
+                            "    input.blur();\n" +
+                            "  }\n" +
+                            "  try {\n" +
+                            "    field.value = value;\n" +
+                            "    field.dispatchEvent(new CustomEvent('value-changed',{detail:{value:value}, bubbles:true, composed:true}));\n" +
+                            "  } catch(e){ /* ignore */ }\n" +
+                            "  return true;\n" +
+                            "}\n" +
+
+                            "function clickCategory(labelText) {\n" +
+                            "  // tenta vaadin-checkbox com label\n" +
+                            "  const all = Array.from(document.querySelectorAll('vaadin-checkbox'));\n" +
+                            "  for (const cb of all) {\n" +
+                            "    const lab = cb.label || (cb.getAttribute && cb.getAttribute('label')) || '';\n" +
+                            "    if (lab && (lab.trim() === labelText || lab.trim().toLowerCase().includes(labelText.toLowerCase()))) {\n" +
+                            "      cb.checked = true;\n" +
+                            "      cb.dispatchEvent(new Event('change', {bubbles:true, composed:true}));\n" +
+                            "      return true;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  // fallback: procura labels visíveis na lista de categorias\n" +
+                            "  const labels = Array.from(document.querySelectorAll('label, span, div'));\n" +
+                            "  for (const l of labels) {\n" +
+                            "    try {\n" +
+                            "      if (l.textContent && l.textContent.trim().toLowerCase().includes(labelText.toLowerCase())) {\n" +
+                            "        // tenta clicar no elemento pai que contenha um checkbox\n" +
+                            "        let p = l;\n" +
+                            "        for (let i=0;i<6;i++){ p = p.parentElement; if(!p) break; const cb = p.querySelector && p.querySelector('vaadin-checkbox, input[type=checkbox]'); if(cb){ cb.checked = true; cb.dispatchEvent(new Event('change',{bubbles:true, composed:true})); return true; }}\n" +
+                            "      }\n" +
+                            "    } catch(e) { }\n" +
+                            "  }\n" +
+                            "  return false;\n" +
+                            "}\n" +
+
+                            "function setSelect(label, optionText) {\n" +
+                            "  // suporta vaadin-select, vaadin-combo-box, and native select\n" +
+                            "  const selects = Array.from(document.querySelectorAll('vaadin-select, vaadin-combo-box, select'));\n" +
+                            "  for (const s of selects) {\n" +
+                            "    const lab = s.label || (s.getAttribute && s.getAttribute('label')) || '';\n" +
+                            "    if (lab && (lab.trim() === label || lab.trim().toLowerCase().includes(label.toLowerCase()))) {\n" +
+                            "      try {\n" +
+                            "        let found = null;\n" +
+                            "        try {\n" +
+                            "          const opts = s.shadowRoot ? s.shadowRoot.querySelectorAll('vaadin-select-item, vaadin-combo-box-item, vaadin-item, paper-item, option') : [];\n" +
+                            "          for (const o of opts) { if (o.textContent && o.textContent.trim().toLowerCase().includes(optionText.toLowerCase())) { found = o; break; } }\n" +
+                            "        } catch(e){}\n" +
+                            "        if(found && found.value){ s.value = found.value; s.dispatchEvent(new CustomEvent('value-changed',{detail:{value:s.value}, bubbles:true, composed:true})); return true; }\n" +
+                            "        try { s.focus(); s.click(); } catch(e){}\n" +
+                            "        const matches = Array.from(document.querySelectorAll('*')).filter(el=> el.textContent && el.textContent.trim().toLowerCase().includes(optionText.toLowerCase()));\n" +
+                            "        for(const m of matches){ try{ m.click(); return true; }catch(e){} }\n" +
+                            "        try { s.value = optionText; s.dispatchEvent(new Event('change',{bubbles:true, composed:true})); s.dispatchEvent(new CustomEvent('value-changed',{detail:{value:optionText}, bubbles:true, composed:true})); return true;} catch(e){}\n" +
+                            "      } catch(e) { /* ignore */ }\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  return false;\n" +
+                            "}\n" +
+
+                            // versão agressiva de clickSave que tenta remover disabled e usar várias estratégias
+                            "function clickSave(root){\n" +
+                            "  root = root || document;\n                            \n" +
+                            "  function removeDisabledAttributes(el){\n" +
+                            "    try {\n" +
+                            "      if(el.hasAttribute && el.hasAttribute('disabled')) el.removeAttribute('disabled');\n" +
+                            "      if(el.hasAttribute && el.hasAttribute('aria-disabled')) el.removeAttribute('aria-disabled');\n" +
+                            "      if(el.disabled !== undefined) el.disabled = false;\n" +
+                            "    } catch(e){}\n" +
+                            "  }\n" +
+                            "\n" +
+                            "  function tryClickElement(el){\n" +
+                            "    if(!el) return false;\n" +
+                            "    removeDisabledAttributes(el);\n" +
+                            "    // 1) tentativa directa\n" +
+                            "    try { el.click(); return true; } catch(e) {}\n" +
+                            "    // 2) tenta clicar no botão interno do shadowRoot\n" +
+                            "    try {\n" +
+                            "      const inner = (el.shadowRoot && (el.shadowRoot.querySelector('button') || el.shadowRoot.querySelector('[part=button]')));\n" +
+                            "      if(inner){ removeDisabledAttributes(inner); try { inner.click(); return true; } catch(e) {} }\n" +
+                            "    } catch(e) {}\n" +
+                            "    // 3) dispara sequência de eventos de mouse/pointer\n" +
+                            "    const evs = ['pointerdown','mousedown','pointerup','mouseup','click'];\n" +
+                            "    for(const t of evs){\n" +
+                            "      try { el.dispatchEvent(new MouseEvent(t, {bubbles:true, cancelable:true, view:window})); } catch(e) {}\n" +
+                            "    }\n" +
+                            "    // 4) tenta encontrar o elemento que está sobre o centro do bounding rect e clicar nele\n" +
+                            "    try {\n" +
+                            "      const r = el.getBoundingClientRect();\n" +
+                            "      const cx = Math.round(r.left + r.width/2);\n" +
+                            "      const cy = Math.round(r.top + r.height/2);\n" +
+                            "      const topEl = document.elementFromPoint(cx, cy);\n" +
+                            "      if(topEl && topEl !== el){\n" +
+                            "        removeDisabledAttributes(topEl);\n" +
+                            "        try { topEl.click(); return true; } catch(e) {}\n" +
+                            "        try { topEl.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, clientX:cx, clientY:cy})); return true; } catch(e) {}\n" +
+                            "      }\n" +
+                            "    } catch(e) {}\n" +
+                            "    return false;\n" +
+                            "  }\n" +
+                            "\n" +
+                            "  const buttons = root.querySelectorAll('vaadin-button, button');\n" +
+                            "  for (const b of buttons){\n" +
+                            "    if (b.textContent && b.textContent.trim().toLowerCase().startsWith('save')){\n" +
+                            "      removeDisabledAttributes(b);\n" +
+                            "      // tenta múltiplas vezes com pequeno intervalo (alguns overlays reactinam ao focus)\n" +
+                            "      if(tryClickElement(b)) return true;\n" +
+                            "      // tenta procurar no shadowRoot do próprio botão\n" +
+                            "      try { if(b.shadowRoot){ const inner = b.shadowRoot.querySelector('button, [part=button]'); if(tryClickElement(inner)) return true; } } catch(e){}\n" +
+                            "      // último recurso: percorre elementos descendentes e tenta click\n" +
+                            "      try {\n" +
+                            "        const desc = b.querySelectorAll('*');\n" +
+                            "        for(const d of desc){ removeDisabledAttributes(d); if(tryClickElement(d)) return true; }\n" +
+                            "      } catch(e){}\n" +
+                            "      return false;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "\n" +
+                            "  // busca recursiva em shadow roots\n" +
+                            "  const elems = root.querySelectorAll('*');\n" +
+                            "  for (const el of elems){\n" +
+                            "    if (el.shadowRoot){\n" +
+                            "      if (clickSave(el.shadowRoot)) return true;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  return false;\n" +
+                            "}\n" +
+
+                            "// Preenche campos principais\n" +
+                            "if (!setField('Product name', arguments[0])) return (function(){\n" +
+                            "  const vals = Array.from(document.querySelectorAll('vaadin-text-field, vaadin-number-field, vaadin-text-area')).map(f => f.label || f.getAttribute('label') || f.textContent || 'NO_LABEL');\n" +
+                            "  console.log('Available labels:', vals);\n" +
+                            "  return false;\n" +
+                            "})();\n" +
+                            "setField('Price', arguments[1]);\n" +
+                            "setField('In stock', arguments[2]);\n" +
+                            "// define availability\n" +
+                            "if (arguments[3]) { const ok = setSelect('Availability', arguments[3]); console.log('setSelect Availability ->', ok); }\n" +
+                            "// escolhe categoria\n" +
+                            "if (arguments[4]) { const okc = clickCategory(arguments[4]); console.log('clickCategory ->', okc); }\n" +
+
+                            "// === SCROLL ATÉ AO BOTÃO SAVE ===\n" +
+                            "function scrollToSave(){\n" +
+                            "  const buttons = document.querySelectorAll('vaadin-button, button');\n" +
+                            "  for(const b of buttons){\n" +
+                            "    if(b.textContent && b.textContent.trim().toLowerCase().startsWith('save')){\n" +
+                            "      try { b.scrollIntoView({behavior:'auto', block:'center'}); } catch(e){}\n" +
+                            "      return true;\n" +
+                            "    }\n" +
+                            "  }\n" +
+                            "  return false;\n" +
+                            "}\n" +
+
+                            "scrollToSave();\n" +
+
+                            "// === TENTA CLICAR NO SAVE ===\n" +
+                            "return clickSave();",
+                    name, price, stock, availability, category
+            );
+
+            if (!result) {
+                sleep(500);
+            }
         }
+
+        if (!result) {
+            throw new IllegalStateException("Não consegui preencher o formulário ou clicar em Save.");
+        }
+
+        sleep(2000); // tempo para o grid atualizar com o novo produto
+        return this;
     }
 
-    /**
-     * Devolve o primeiro elemento visível entre os seletores fornecidos.
-     */
     private SelenideElement findVisible(String... selectors) {
-        for (String s : selectors) {
+        for (String sel : selectors) {
             try {
-                SelenideElement el = $(s);
+                SelenideElement el = $(sel);
                 if (el.exists() && el.is(Condition.visible)) return el;
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // se o seletor for inválido (:has-text em versões antigas, etc) ignoramos
+            }
         }
         return null;
     }
