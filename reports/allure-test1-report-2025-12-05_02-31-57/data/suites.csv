@@ -1,0 +1,2 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","4988","search()","","2025-12-04","broken","2025-12-04","","com.guiao5.guiao5.MainPageTest","com.guiao5.guiao5.MainPageTest","search"
