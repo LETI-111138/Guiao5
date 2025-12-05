@@ -11,7 +11,7 @@ public class MainPage {
 
     private final WebDriver driver;
 
-    // Locators públicos para serem usados nos testes com $(...)
+    // Public locators to be used in tests with $(...)
     public final By seeDeveloperToolsButton =
             By.cssSelector("[data-test-marker='Developer Tools']");
 
@@ -32,21 +32,21 @@ public class MainPage {
         return driver;
     }
 
-    // Métodos de conveniência (se quiseres usar Page Object também em outros testes)
+    // Convenience methods (if you want to use the Page Object directly in tests)
 
     public SelenideElement seeDeveloperToolsButton() {
         return $(seeDeveloperToolsButton);
     }
 
-    public SelenideElement findYourToolsButton() {
+    public SelenideElement findYourToolsButtonElement() {
         return $(findYourToolsButton);
     }
 
-    public SelenideElement toolsMenu() {
+    public SelenideElement toolsMenuElement() {
         return $(toolsMenu);
     }
 
-    public SelenideElement searchButton() {
+    public SelenideElement searchButtonElement() {
         return $(searchButton);
     }
 }

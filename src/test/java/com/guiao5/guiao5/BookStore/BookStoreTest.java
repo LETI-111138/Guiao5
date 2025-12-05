@@ -1,7 +1,6 @@
 package com.guiao5.guiao5.BookStore;
 
 import com.codeborne.selenide.Configuration;
-import com.guiao5.guiao5.BookStore.BookStorePage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +15,7 @@ public class BookStoreTest {
     @BeforeAll
     static void globalSetup() {
         Configuration.browser = "chrome";
-        Configuration.timeout = 10000; // 10s
+        Configuration.timeout = 10_000; // 10 seconds
     }
 
     @BeforeEach
@@ -25,12 +24,12 @@ public class BookStoreTest {
     }
 
     @Test
-    void login_criarNovoProduto() {
+    void loginAndCreateNewProduct() {
         page.openPage()
                 .loginAsAdmin()
                 .openAddProductForm()
                 .fillNewProductForm(
-                        "Livro de Teste - " + System.currentTimeMillis(),
+                        "Test Book - " + System.currentTimeMillis(),
                         "12.34",
                         "10",
                         "Available",
