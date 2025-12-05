@@ -40,7 +40,6 @@ public class MainPageTest {
     public void tearDown() {
         if (driver != null) driver.quit();
     }
-
     /* -----------------------
        TEST 1 — Search
        ----------------------- */
@@ -73,7 +72,6 @@ public class MainPageTest {
             assertEquals(term, resultInput.getAttribute("value"));
         }
     }
-
     /* -----------------------
        TEST 2 — Tools Menu
        ----------------------- */
@@ -114,7 +112,6 @@ public class MainPageTest {
 
         assertTrue(foundVisible, "Expected a visible submenu (div[data-test='main-submenu']) but none appeared.");
     }
-
     /* -----------------------
        TEST 3 — Navigation to All Tools
        ----------------------- */
@@ -133,11 +130,9 @@ public class MainPageTest {
         String expectedTitle = "All Developer Tools and Products by JetBrains";
         assertEquals(expectedTitle, driver.getTitle());
     }
-
     /* -----------------------
        Small utilities/helpers
        ----------------------- */
-
     private void waitUntilClickableAndClick(WebElement el) {
         wait.until(ExpectedConditions.visibilityOf(el));
         wait.until(ExpectedConditions.elementToBeClickable(el));
@@ -155,7 +150,6 @@ public class MainPageTest {
             }
         }
     }
-
     /* -----------------------
        Cookie helper (inspired by the Selenide example)
        ----------------------- */
@@ -223,7 +217,6 @@ public class MainPageTest {
             } catch (Exception ignored) {}
         }
     }
-
     /* -----------------------
        Search helper (tries multiple selectors)
        ----------------------- */
